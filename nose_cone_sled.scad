@@ -32,10 +32,10 @@ thread_angle = 45;
 thread_clearance = 0.3;    // mm
 
 // Plug cap thickness (solid top of the plug)
-plug_cap_thickness = 3;    // mm
+plug_cap_thickness = 4;    // mm
 
 // Plug cap extends beyond collar OD by this amount
-plug_cap_overhang = 2;     // mm
+plug_cap_overhang = 1;     // mm
 
 // Center hole diameter for steel eyelet
 eyelet_hole_diameter = 5;  // mm
@@ -43,7 +43,7 @@ eyelet_hole_diameter = 5;  // mm
 // --- Sled Parameters ---
 
 // Width of the sled (must be less than thread diameter)
-sled_width = 20;           // mm (thread diameter is ~2*thread_ir)
+sled_width = 27;           // mm (thread diameter is ~2*thread_ir)
 
 // Length of the sled
 sled_length = 50;          // mm
@@ -53,6 +53,15 @@ sled_thickness = 3;        // mm
 
 // Bevel radius on the protruding ends
 sled_bevel_radius = 5;     // mm
+
+// Height of the side lips (curved walls on sled edges)
+sled_side_height = 2;      // mm
+
+// Thickness of the side lips
+sled_side_thickness = 2;   // mm
+
+// Length of the side lips
+sled_side_length = 45;     // mm
 
 // Resolution
 $fn = 120;
@@ -143,12 +152,13 @@ module collar() {
 }
 
 // --- Module: Sled ---
-// Vertical plate extending downward from the plug
+// Vertical plate with curved side lips, extending downward from the plug
 module sled() {
     br = sled_bevel_radius;
     hw = sled_width / 2;
     ht = sled_thickness / 2;
 
+    // Flat sled plate with beveled bottom corners
     hull() {
         // Top edge: flat rectangle flush with the plug at z=0
         translate([-hw, -ht, -0.01])
@@ -163,6 +173,21 @@ module sled() {
         translate([hw - br, 0, -sled_length + br])
             rotate([90, 0, 0])
             cylinder(r=br, h=sled_thickness, center=true);
+    }
+
+    // Side lips along the left and right edges of the sled
+    // Curved by intersecting with the plug cylinder
+    intersection() {
+        // Plug cylinder trims the lips to match the circular profile
+        translate([0, 0, -sled_side_length])
+            cylinder(r=thread_ir, h=sled_side_length);
+
+        // Two thin walls at the sled edges
+        for (side = [-1, 1]) {
+            translate([side > 0 ? hw - sled_side_thickness : -hw,
+                       -(ht + sled_side_height), -sled_side_length])
+                cube([sled_side_thickness, sled_thickness + 2 * sled_side_height, sled_side_length]);
+        }
     }
 }
 
