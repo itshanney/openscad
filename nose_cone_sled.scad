@@ -8,7 +8,7 @@
 // --- Configurable Parameters ---
 
 // Outer diameter of the collar (match nose cone ID)
-collar_od = 38;            // mm
+collar_od = 65;            // mm
 
 // Wall thickness of the collar
 wall_thickness = 2.5;      // mm
@@ -37,16 +37,22 @@ plug_cap_thickness = 4;    // mm
 // Plug cap extends beyond collar OD by this amount
 plug_cap_overhang = 1;     // mm
 
+// Number of grip flutes around the cap edge
+grip_count = 60;
+
+// Radius of each grip flute (controls width and depth of groove)
+grip_radius = 0.25;         // mm
+
 // Center hole diameter for steel eyelet
 eyelet_hole_diameter = 5;  // mm
 
 // --- Sled Parameters ---
 
 // Width of the sled (must be less than thread diameter)
-sled_width = 27;           // mm (thread diameter is ~2*thread_ir)
+sled_width = 50;           // mm (thread diameter is ~2*thread_ir)
 
 // Length of the sled
-sled_length = 50;          // mm
+sled_length = 100;          // mm
 
 // Thickness of the sled platform
 sled_thickness = 3;        // mm
@@ -61,7 +67,7 @@ sled_side_height = 2;      // mm
 sled_side_thickness = 2;   // mm
 
 // Length of the side lips
-sled_side_length = 45;     // mm
+sled_side_length = 95;     // mm
 
 // Resolution
 $fn = 120;
@@ -152,25 +158,25 @@ module collar() {
 }
 
 // --- Module: Sled ---
-// Vertical plate with curved side lips, extending downward from the plug
+// Vertical plate with curved side lips, extending upward from the plug
 module sled() {
     br = sled_bevel_radius;
     hw = sled_width / 2;
     ht = sled_thickness / 2;
 
-    // Flat sled plate with beveled bottom corners
+    // Flat sled plate with beveled top corners
     hull() {
-        // Top edge: flat rectangle flush with the plug at z=0
-        translate([-hw, -ht, -0.01])
+        // Bottom edge: flat rectangle flush with attachment point at z=0
+        translate([-hw, -ht, 0])
             cube([sled_width, sled_thickness, 0.01]);
 
-        // Bottom-left corner: rounded
-        translate([-hw + br, 0, -sled_length + br])
+        // Top-left corner: rounded
+        translate([-hw + br, 0, sled_length - br])
             rotate([90, 0, 0])
             cylinder(r=br, h=sled_thickness, center=true);
 
-        // Bottom-right corner: rounded
-        translate([hw - br, 0, -sled_length + br])
+        // Top-right corner: rounded
+        translate([hw - br, 0, sled_length - br])
             rotate([90, 0, 0])
             cylinder(r=br, h=sled_thickness, center=true);
     }
@@ -178,51 +184,56 @@ module sled() {
     // Side lips along the left and right edges of the sled
     // Curved by intersecting with the plug cylinder
     intersection() {
-        // Plug cylinder trims the lips to match the circular profile
-        translate([0, 0, -sled_side_length])
-            cylinder(r=thread_ir, h=sled_side_length);
+        cylinder(r=thread_ir, h=sled_side_length);
 
         // Two thin walls at the sled edges
         for (side = [-1, 1]) {
             translate([side > 0 ? hw - sled_side_thickness : -hw,
-                       -(ht + sled_side_height), -sled_side_length])
+                       -(ht + sled_side_height), 0])
                 cube([sled_side_thickness, sled_thickness + 2 * sled_side_height, sled_side_length]);
         }
     }
 }
 
 // --- Module: Plug ---
-// Cylindrical plug with external threads, cap, and sled
+// Cylindrical plug with cap at base, threads above, and sled extending upward
 module plug() {
     difference() {
         union() {
-            // Plug body (solid core)
-            cylinder(h=plug_height, r=thread_ir);
+            // Cap at the base
+            cylinder(h=plug_cap_thickness, r=collar_or + plug_cap_overhang);
 
-            // External threads on the plug
-            intersection() {
-                // Constrain threads to plug height
-                cylinder(h=plug_height, r=thread_or);
+            // Plug body (solid core) above the cap
+            translate([0, 0, plug_cap_thickness])
+                cylinder(h=plug_height, r=thread_ir);
 
-                threads(
-                    inner_r = thread_ir,
-                    outer_r = thread_or,
-                    pitch = thread_pitch,
-                    height = plug_height
-                );
-            }
+            // External threads above the cap
+            translate([0, 0, plug_cap_thickness])
+                intersection() {
+                    cylinder(h=plug_height, r=thread_or);
+                    threads(
+                        inner_r = thread_ir,
+                        outer_r = thread_or,
+                        pitch = thread_pitch,
+                        height = plug_height
+                    );
+                }
 
-            // Cap on top of the plug
-            translate([0, 0, plug_height])
-                cylinder(h=plug_cap_thickness, r=collar_or + plug_cap_overhang);
-
-            // Sled platform extending below
-            sled();
+            // Sled extending upward from top of threads
+            translate([0, 0, plug_cap_thickness + plug_height])
+                sled();
         }
 
-        // Center hole for steel eyelet
-        translate([0, 0, -sled_thickness - 0.1])
-            cylinder(h=plug_height + plug_cap_thickness + sled_thickness + 0.2, d=eyelet_hole_diameter);
+        // Grip flutes around the cap edge
+        for (i = [0 : grip_count - 1]) {
+            rotate([0, 0, i * 360 / grip_count])
+                translate([collar_or + plug_cap_overhang, 0, plug_cap_thickness / 2])
+                    cylinder(r=grip_radius, h=plug_cap_thickness + 0.2, center=true);
+        }
+
+        // Center hole for steel eyelet through cap and threads only
+        translate([0, 0, -0.1])
+            cylinder(h=plug_cap_thickness + plug_height + 0.2, d=eyelet_hole_diameter);
     }
 }
 

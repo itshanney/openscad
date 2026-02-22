@@ -1,2 +1,5 @@
 # Ignore STL files
 STL/
+
+# macOS Files
+.DS_Store
